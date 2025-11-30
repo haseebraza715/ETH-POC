@@ -1,4 +1,4 @@
-# Claims PoC (LangGraph + Python)
+# Claims PoC 
 
 This proof-of-concept demonstrates a local claims intake agent that:
 
@@ -87,5 +87,3 @@ python -m claims_poc.main --doc claims_poc/sample_data/police_report_example.pdf
 - `sample_data/police_report_example.pdf` – tiny PDF with the same content (parsed via `pypdf`; if parsing fails on your platform the parser gracefully falls back to raw text decoding)
 
 Feel free to replace these with your own documents; the doc parser simply needs a filesystem path.
-
-# ETH-POC
