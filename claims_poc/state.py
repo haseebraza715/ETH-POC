@@ -1,4 +1,3 @@
-"""State definitions for the claims PoC."""
 
 from __future__ import annotations
 
@@ -8,7 +7,6 @@ from typing import Any, Dict, List, Optional
 
 @dataclass
 class ClaimState:
-    """Dataclass that tracks the evolving claim during the workflow."""
 
     claim_type: str = "motor_accident"
     date: Optional[str] = None
@@ -34,19 +32,15 @@ class ClaimState:
     previous_completeness: float = 0.0  # Track if we're making progress
 
     def to_dict(self) -> Dict[str, Any]:
-        """Return a JSON-serialisable representation of the claim."""
         return asdict(self)
 
     def add_reasoning(self, entry: str) -> None:
-        """Append a single reasoning entry."""
         self.reasoning_trace.append(entry)
 
     def add_message(self, role: str, content: str) -> None:
-        """Append a chat-style message to the history."""
         self.messages.append({"role": role, "content": content})
 
     def set_field(self, field_name: str, value: Any, source: str) -> None:
-        """Utility to set a field and remember its source."""
         setattr(self, field_name, value)
         self.fields_source[field_name] = source
 

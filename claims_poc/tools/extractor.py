@@ -1,4 +1,3 @@
-"""Field extraction helpers."""
 
 from __future__ import annotations
 
@@ -44,8 +43,7 @@ Important:
 
 
 def extract_fields_from_doc(doc_text: str, claim_type: str) -> tuple[Dict[str, str], bool]:
-    """Use an LLM to extract structured data from a document.
-    
+    """
     Falls back to rule-based extraction if JSON parsing fails.
     
     Returns:
@@ -54,20 +52,20 @@ def extract_fields_from_doc(doc_text: str, claim_type: str) -> tuple[Dict[str, s
     prompt = EXTRACTION_PROMPT.format(doc_text=doc_text[:6000], claim_type=claim_type)
     response = call_llm(prompt, response_format="json", temperature=0.0)
     
-    # Try to parse JSON response
+
     try:
         if isinstance(response, str):
             parsed = json.loads(response)
         else:
             parsed = response
         
-        # Validate that we got a dict
+
         if isinstance(parsed, dict):
             return parsed, False
         else:
-            # Response is not a dict, fall back to rule-based extraction
+
             return RuleBasedExtractor.run(prompt), True
     except json.JSONDecodeError:
-        # JSON parsing failed, fall back to rule-based extraction
+
         return RuleBasedExtractor.run(prompt), True
 

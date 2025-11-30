@@ -6,7 +6,6 @@ import json
 import os
 from pathlib import Path
 
-# Load environment variables from .env file BEFORE any other imports
 try:
     from dotenv import load_dotenv
     project_root = Path(__file__).resolve().parent

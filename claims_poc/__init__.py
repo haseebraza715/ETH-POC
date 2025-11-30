@@ -1,14 +1,13 @@
-"""Claims PoC package."""
 
 from __future__ import annotations
 
 import os
 from pathlib import Path
 
-try:  # pragma: no cover - optional dependency
+try:
     from dotenv import load_dotenv
-except Exception:  # pragma: no cover
-    load_dotenv = None  # type: ignore
+except Exception:
+    load_dotenv = None
 
 if load_dotenv:
     project_root = Path(__file__).resolve().parent.parent

@@ -1,4 +1,3 @@
-"""Document parsing helpers."""
 
 from __future__ import annotations
 
@@ -11,8 +10,8 @@ logger = logging.getLogger(__name__)
 
 def _read_pdf(path: Path) -> Optional[str]:
     try:
-        from pypdf import PdfReader  # type: ignore
-    except Exception as exc:  # pragma: no cover - import guard
+        from pypdf import PdfReader
+    except Exception as exc:
         logger.warning("pypdf not available (%s); falling back to plain text read", exc)
         return None
 
@@ -26,7 +25,6 @@ def _read_pdf(path: Path) -> Optional[str]:
 
 
 def parse_document(path_str: str) -> str:
-    """Return textual content of the provided document."""
     path = Path(path_str)
     if not path.exists():
         raise FileNotFoundError(f"Document {path} not found")

@@ -1,4 +1,3 @@
-"""Schema utilities for the claims PoC."""
 
 from typing import Dict, List
 
@@ -18,6 +17,5 @@ CLAIM_TYPE_SCHEMAS: Dict[str, List[str]] = {
 
 
 def get_required_fields_for_claim_type(claim_type: str) -> List[str]:
-    """Return the minimal schema for a given claim type."""
     return CLAIM_TYPE_SCHEMAS.get(claim_type, DEFAULT_SCHEMA)
 

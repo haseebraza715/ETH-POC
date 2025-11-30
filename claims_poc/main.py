@@ -1,4 +1,3 @@
-"""CLI entrypoint for the claims PoC."""
 
 from __future__ import annotations
 

@@ -1,4 +1,3 @@
-"""Minimal scenario harness to sanity-check the LangGraph flow."""
 
 from __future__ import annotations
 
@@ -24,15 +23,15 @@ def run_scenario() -> ClaimState:
     project_root = Path(__file__).resolve().parents[1]
     doc_path = project_root / "claims_poc" / "sample_data" / "police_report_rear_end.txt"
     answers = [
-        "2025-01-12",  # date
-        "18:45",  # time
+        "2025-01-12",
+        "18:45",
         "Bellevue Square, Zurich",
-        "",  # placeholder for document prompt (skipped when doc already set)
-        "yes",  # other vehicle involved
-        "None",  # injuries
+        "",
+        "yes",
+        "None",
         "Rear bumper damage at crosswalk",
-        "ZH 223014",  # other vehicle plate
-        "3000",  # estimated damage
+        "ZH 223014",
+        "3000",
     ]
     io_handler = ScriptedIO(answers)
     workflow = build_graph(io_handler)

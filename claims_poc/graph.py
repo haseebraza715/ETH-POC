@@ -1,4 +1,3 @@
-"""LangGraph definition for the claims PoC."""
 
 from __future__ import annotations
 
@@ -18,7 +17,6 @@ from claims_poc.tools.consistency import EMPTY_VALUES
 
 
 class IOInterface(Protocol):
-    """Minimal IO contract so nodes can prompt the operator."""
 
     def ask(self, prompt: str) -> str:
         ...
@@ -28,20 +26,18 @@ class IOInterface(Protocol):
 
 
 class NeedUserInput(Exception):
-    """Exception raised when the workflow needs user input to continue.
-    
+    """
     This exception is raised by StreamlitIO.ask() when no answer is available
     and the workflow should pause to wait for user input.
     """
     def __init__(self, question: str, current_state=None):
         self.question = question
-        self.current_state = current_state  # Optional: current claim state when exception was raised
+        self.current_state = current_state
         super().__init__(f"Need user input for question: {question}")
 
 
 class NeedMultiUserInput(Exception):
-    """Exception raised when the workflow needs multiple user inputs at once (GUI mode).
-    
+    """
     This exception is raised when there are multiple clarification questions
     that should be shown together in the GUI, allowing the user to answer all at once.
     """
@@ -57,7 +53,6 @@ class NeedMultiUserInput(Exception):
 
 
 class TranscriptIO(IOInterface):
-    """IO handler that logs prompts/responses for non-interactive runs."""
 
     def __init__(self, scripted_answers: Optional[List[str]] = None) -> None:
         self._answers = iter(scripted_answers or [])
@@ -67,7 +62,7 @@ class TranscriptIO(IOInterface):
     def ask(self, prompt: str) -> str:
         self._ask_count += 1
         self.events.append(f"question: {prompt}")
-        # Prevent infinite loops: if we've asked too many times, return empty
+
         if self._ask_count > 20:
             self.events.append("answer: [stopped asking to prevent infinite loop]")
             return ""
@@ -75,7 +70,7 @@ class TranscriptIO(IOInterface):
         if answer:
             self.events.append(f"answer: {answer}")
         else:
-            # For document path requests, provide a default
+
             if "police report" in prompt.lower() or "document" in prompt.lower():
                 answer = "claims_poc/sample_data/police_report_example.txt"
                 self.events.append(f"answer: {answer} [default]")
@@ -189,7 +184,7 @@ Output format: bullet points ("- ..." per line), nothing else."""
 
 class LangGraphState(TypedDict, total=False):
     claim: ClaimState
-    _io_mode: Optional[str]  # "gui" or "cli" - determines if document request should be skipped
+    _io_mode: Optional[str]
 
 
 def _parse_boolean(answer: str) -> bool | None:
@@ -213,7 +208,7 @@ def _collect_basic_info_node(io: IOInterface, state: LangGraphState) -> LangGrap
         io.notify("All required fields collected from user.")
         return {"claim": claim}
     
-    # If we've tried before, set defaults immediately instead of asking again
+
     if claim.collection_attempts > 1:
         io.notify(f"Setting defaults for remaining fields (attempt {claim.collection_attempts})")
         for field in missing_fields:
@@ -225,7 +220,7 @@ def _collect_basic_info_node(io: IOInterface, state: LangGraphState) -> LangGrap
                 claim.add_reasoning(f"Set placeholder for {field} (no answer after {claim.collection_attempts} attempts)")
         return {"claim": claim}
     
-    # First attempt: ask questions
+
     to_ask = missing_fields[:3]
     claim_state_json = json.dumps(claim.to_dict(), indent=2)
     required_fields_json = json.dumps(required_fields)
@@ -250,7 +245,7 @@ def _collect_basic_info_node(io: IOInterface, state: LangGraphState) -> LangGrap
         claim.add_message("user", answer)
         
         if not answer:
-            # Set defaults immediately on empty answer
+
             if field == "other_vehicle_involved":
                 claim.set_field(field, False, "default")
                 claim.add_reasoning(f"Set default for {field}: False (no answer)")
@@ -259,7 +254,7 @@ def _collect_basic_info_node(io: IOInterface, state: LangGraphState) -> LangGrap
                 claim.add_reasoning(f"Set placeholder for {field} (no answer)")
             continue
         
-        # Process non-empty answers normally
+
         value = answer
         if field == "other_vehicle_involved":
             parsed = _parse_boolean(answer)
@@ -295,7 +290,7 @@ def _request_documents_node(io: IOInterface, state: LangGraphState) -> LangGraph
 def _process_documents_node(io: IOInterface, state: LangGraphState) -> LangGraphState:
     claim = state["claim"]
     
-    # Handle empty document list explicitly
+
     if not claim.documents:
         io.notify("No documents provided; skipping document processing.")
         claim.add_reasoning("No documents provided; document processing skipped.")
@@ -331,9 +326,9 @@ def _validate_claim_node(state: LangGraphState) -> LangGraphState:
     score = consistency.compute_completeness(claim, required_fields)
     flags = consistency.find_inconsistencies(claim, claim.doc_extracted_fields)
     
-    # Track validation cycles and detect staleness
+
     claim.validation_cycles += 1
-    is_stale = abs(score - claim.previous_completeness) < 0.01  # No improvement
+    is_stale = abs(score - claim.previous_completeness) < 0.01
     claim.previous_completeness = score
     
     claim.completeness_score = score
@@ -342,7 +337,7 @@ def _validate_claim_node(state: LangGraphState) -> LangGraphState:
     truly_required = [f for f in required_fields if f not in optional_fields]
     missing = [field for field in truly_required if getattr(claim, field) in EMPTY_VALUES]
     
-    # Create more human-readable trace message
+
     if missing:
         trace_message = f"Validation cycle {claim.validation_cycles}: Completeness {score:.0%}, missing fields: {', '.join(missing)}"
     elif flags:
@@ -357,39 +352,37 @@ def _validate_claim_node(state: LangGraphState) -> LangGraphState:
 
 
 def _validate_answer_format(answer: str, field: str) -> bool:
-    """Validate that the answer format matches the expected field type.
-    
+    """
     Returns True if the format is valid for the field, False otherwise.
     """
     answer = answer.strip()
     
     if field == "date":
-        # Date should be in YYYY-MM-DD format or similar date patterns
-        # Check for common date formats: YYYY-MM-DD, DD/MM/YYYY, MM/DD/YYYY, etc.
+
+
         date_patterns = [
-            r'^\d{4}-\d{2}-\d{2}$',  # YYYY-MM-DD
-            r'^\d{2}/\d{2}/\d{4}$',   # DD/MM/YYYY or MM/DD/YYYY
-            r'^\d{4}/\d{2}/\d{2}$',   # YYYY/MM/DD
-            r'^\d{2}-\d{2}-\d{4}$',   # DD-MM-YYYY
+            r'^\d{4}-\d{2}-\d{2}$',
+            r'^\d{2}/\d{2}/\d{4}$',
+            r'^\d{4}/\d{2}/\d{2}$',
+            r'^\d{2}-\d{2}-\d{4}$',
         ]
-        # Reject time-like patterns (HH:MM)
+
         if re.match(r'^\d{1,2}:\d{2}', answer):
             return False
-        # Check if it matches any date pattern
+
         return any(re.match(pattern, answer) for pattern in date_patterns)
     
     elif field == "time":
-        # Time should be in HH:MM format
-        time_pattern = r'^\d{1,2}:\d{2}(?::\d{2})?$'  # HH:MM or HH:MM:SS
+
+        time_pattern = r'^\d{1,2}:\d{2}(?::\d{2})?$'
         return bool(re.match(time_pattern, answer))
     
-    # For other fields, accept any non-empty answer
+
     return bool(answer)
 
 
 def _normalize_clarification_answer(answer: str, doc_value: Any, field: str, io: Optional[IOInterface] = None) -> Any:
-    """Normalize user clarification answer to actual value.
-    
+    """
     If user indicates they want to use the document value (e.g., "report one", "the report"),
     return the actual doc_value. Otherwise, validate the format and return the answer.
     
@@ -399,15 +392,15 @@ def _normalize_clarification_answer(answer: str, doc_value: Any, field: str, io:
         return doc_value if doc_value else answer
     
     answer_lower = answer.lower().strip()
-    # Check if user wants to use document value
+
     doc_indicators = ["report", "document", "doc", "the report", "report one", "from report"]
     if any(indicator in answer_lower for indicator in doc_indicators):
-        # User wants to use document value
+
         return doc_value
     
-    # Validate answer format for date/time fields
+
     if field in ("date", "time") and not _validate_answer_format(answer, field):
-        # Format doesn't match expected type - use document value as fallback
+
         if io:
             io.notify(
                 f"Answer '{answer}' doesn't match expected format for {field}. "
@@ -415,7 +408,7 @@ def _normalize_clarification_answer(answer: str, doc_value: Any, field: str, io:
             )
         return doc_value if doc_value else answer
     
-    # User provided a specific value with valid format, use it as-is
+
     return answer
 
 
@@ -457,12 +450,12 @@ def _clarify_inconsistencies_node(io: IOInterface, state: LangGraphState) -> Lan
             for item in remaining
         )
 
-    # Check if we're in GUI mode
+
     io_mode = state.get("_io_mode", "cli")
     
     if io_mode == "gui" and len(inconsistencies) > 1:
-        # GUI mode with multiple inconsistencies: ask all questions at once
-        # Build list of questions with field identifiers
+
+
         questions_with_fields = []
         for item, question in zip(inconsistencies, question_lines):
             field = item["field"]
@@ -470,16 +463,16 @@ def _clarify_inconsistencies_node(io: IOInterface, state: LangGraphState) -> Lan
             questions_with_fields.append({
                 "field": field,
                 "question": question_with_field,
-                "display_question": question,  # Question without field tag for display
+                "display_question": question,
                 "user_value": item["user_value"],
                 "doc_value": item["doc_value"],
             })
         
-        # Check if we already have answers for all questions
+
         if hasattr(io, "get_multi_answers"):
             answers = io.get_multi_answers(questions_with_fields)
             if answers and all(q["question"] in answers for q in questions_with_fields):
-                # All answers available, process them
+
                 for q_info in questions_with_fields:
                     field = q_info["field"]
                     question = q_info["question"]
@@ -514,17 +507,17 @@ def _clarify_inconsistencies_node(io: IOInterface, state: LangGraphState) -> Lan
                                 f"Clarified {field}: no answer provided, using document value '{doc_value}'"
                             )
                 
-                # Clear field_answers_map after processing to avoid reuse in future cycles
+
                 if hasattr(io, "clear_field_answers"):
                     io.clear_field_answers()
             else:
-                # Not all answers available, raise exception to get user input
+
                 raise NeedMultiUserInput(questions_with_fields, current_state=state)
         else:
-            # IO handler doesn't support multi-answers, raise exception
+
             raise NeedMultiUserInput(questions_with_fields, current_state=state)
     else:
-        # CLI mode or single inconsistency: process one at a time (existing behavior)
+
         if inconsistencies and question_lines:
             item = inconsistencies[0]
             question = question_lines[0]
@@ -560,7 +553,7 @@ def _clarify_inconsistencies_node(io: IOInterface, state: LangGraphState) -> Lan
                         f"Clarified {field}: no answer provided, using document value '{doc_value}'"
                     )
     
-    # Re-run consistency check after clarifications to update flags
+
     updated_flags = consistency.find_inconsistencies(claim, claim.doc_extracted_fields)
     claim.consistency_flags = updated_flags
     
@@ -571,8 +564,7 @@ def _clarify_inconsistencies_node(io: IOInterface, state: LangGraphState) -> Lan
 
 
 def get_summary_ready_state(claim: ClaimState) -> Dict[str, Any]:
-    """Return a cleaned state dict with only user-facing fields for summary generation.
-    
+    """
     Filters out internal debugging/technical fields that shouldn't appear in handler summaries.
     """
     internal_fields = {
@@ -588,8 +580,7 @@ def get_summary_ready_state(claim: ClaimState) -> Dict[str, Any]:
 
 
 def filter_technical_reasoning_entries(reasoning_trace: List[str]) -> List[str]:
-    """Filter out technical/internal entries from reasoning trace before LLM processing.
-    
+    """
     Removes entries containing:
     - "Completeness=" (completeness scores)
     - "cycles=" or "cycle" (validation cycles)
@@ -613,10 +604,10 @@ def filter_technical_reasoning_entries(reasoning_trace: List[str]) -> List[str]:
     filtered = []
     for entry in reasoning_trace:
         entry_lower = entry.lower()
-        # Skip entries that contain technical patterns
+
         if any(pattern in entry_lower for pattern in technical_patterns):
             continue
-        # Keep human-friendly entries
+
         filtered.append(entry)
     
     return filtered
@@ -624,7 +615,7 @@ def filter_technical_reasoning_entries(reasoning_trace: List[str]) -> List[str]:
 
 def _finalize_claim_node(io: IOInterface, state: LangGraphState) -> LangGraphState:
     claim = state["claim"]
-    # Use cleaned state (without internal fields) for summary generation
+
     clean_state = get_summary_ready_state(claim)
     final_json = json.dumps(clean_state, indent=2)
     summary_prompt = SUMMARY_PROMPT.format(final_claim_state_json=final_json)
@@ -632,15 +623,15 @@ def _finalize_claim_node(io: IOInterface, state: LangGraphState) -> LangGraphSta
     summary_text = call_llm(summary_prompt, temperature=0.2, fallback_text=summary_fallback)
     claim.summary = summary_text
 
-    # Filter out technical entries before sending to LLM for trace generation
+
     filtered_trace = filter_technical_reasoning_entries(claim.reasoning_trace)
     events_list = json.dumps(filtered_trace, indent=2)
-    # Use cleaned state for trace prompt as well to avoid technical jargon
+
     trace_prompt = TRACE_PROMPT.format(
         final_claim_state_json=final_json,
         internal_events_list=events_list,
     )
-    # Use filtered trace for fallback as well
+
     trace_fallback = "\n".join(f"- {event}" for event in filtered_trace[-6:]) if filtered_trace else "- Processed claim."
     reasoning_summary = call_llm(trace_prompt, temperature=0.1, fallback_text=trace_fallback or "- Processed claim.")
     claim.reasoning_summary = reasoning_summary
@@ -650,35 +641,34 @@ def _finalize_claim_node(io: IOInterface, state: LangGraphState) -> LangGraphSta
 
 
 def _route_after_collect(state: LangGraphState) -> str:
-    """Route after collecting basic info: skip document request in GUI mode if no docs."""
     claim = state["claim"]
     io_mode = state.get("_io_mode", "cli")
     
-    # In GUI mode, if no documents are provided, skip the request node
+
     if io_mode == "gui" and not claim.documents:
         claim.add_reasoning("GUI mode: no document uploaded, skipping document request.")
         return "process_documents"
     
-    # Otherwise, go to request_documents (CLI mode or GUI with documents)
+
     return "request_documents"
 
 
 def _route_validation(state: LangGraphState) -> str:
     claim = state["claim"]
     
-    # PRIORITY 1: If complete and consistent, finalize
+
     if claim.completeness_score >= 1.0 and not claim.consistency_flags:
         claim.add_reasoning("Claim is complete and consistent; proceeding to finalization.")
         return "finalize_claim"
     
-    # PRIORITY 2: Force finalization if we've validated too many times
+
     if claim.validation_cycles >= 3:
         claim.add_reasoning(
             f"Reached maximum validation cycles ({claim.validation_cycles}); finalizing with current state."
         )
         return "finalize_claim"
     
-    # PRIORITY 3: Force finalization if state is stale (no progress) and we have acceptable completeness
+
     if (claim.validation_cycles > 1 and 
         abs(claim.completeness_score - claim.previous_completeness) < 0.01 and
         claim.completeness_score >= 0.8):
@@ -688,7 +678,7 @@ def _route_validation(state: LangGraphState) -> str:
         )
         return "finalize_claim"
     
-    # PRIORITY 4: Force finalization if we've collected multiple times with acceptable completeness
+
     if claim.collection_attempts >= 2 and claim.completeness_score >= 0.8:
         claim.add_reasoning(
             f"After {claim.collection_attempts} collection attempts, "
@@ -696,7 +686,7 @@ def _route_validation(state: LangGraphState) -> str:
         )
         return "finalize_claim"
     
-    # Normal routing
+
     if claim.completeness_score < 1.0:
         return "collect_basic_info"
     if claim.consistency_flags:
@@ -705,7 +695,6 @@ def _route_validation(state: LangGraphState) -> str:
 
 
 def build_graph(io_handler: IOInterface) -> Callable[[LangGraphState], LangGraphState]:
-    """Compile the LangGraph with injected IO handler."""
 
     def collect_node(state: LangGraphState) -> LangGraphState:
         return _collect_basic_info_node(io_handler, state)
@@ -745,10 +734,10 @@ def _apply_initial_answers(claim: ClaimState, initial_answers: Dict[str, Any]) -
     for field, value in initial_answers.items():
         if not hasattr(claim, field):
             continue
-        # Skip empty strings and placeholder values
+
         if value in EMPTY_VALUES:
             continue
-        # Handle boolean fields
+
         if field == "other_vehicle_involved" and isinstance(value, str):
             parsed = _parse_boolean(value)
             if parsed is not None:
@@ -772,7 +761,6 @@ def run_claim_flow(
     doc_name: Optional[str] = None,
     io_handler: Optional[IOInterface] = None,
 ) -> tuple[ClaimState, str, List[str], List[str]]:
-    """Run the LangGraph workflow for programmatic callers (Streamlit/tests/etc.)."""
 
     if io_handler is None:
         io_handler = TranscriptIO()

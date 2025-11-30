@@ -1,4 +1,3 @@
-"""LLM client helper with OpenRouter/OpenAI + offline fallback."""
 
 from __future__ import annotations
 
@@ -11,10 +10,10 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from openai import OpenAI
 from openai import RateLimitError as OpenAIRateLimitError
 
-try:  # pragma: no cover - runtime dependency
+try:
     from langchain_openai import ChatOpenAI
-except Exception:  # pragma: no cover - optional
-    ChatOpenAI = None  # type: ignore
+except Exception:
+    ChatOpenAI = None
 
 DEFAULT_SYSTEM_PROMPT = (
     "You are an AI assistant helping to process insurance claims.\n"
@@ -32,7 +31,6 @@ DEFAULT_SYSTEM_PROMPT = (
 
 
 class RuleBasedExtractor:
-    """Heuristic extractor for offline runs."""
 
     DATE_PATTERN = re.compile(r"(20\d{2}-\d{2}-\d{2})")
     TIME_PATTERN = re.compile(r"(\d{1,2}:\d{2})")
@@ -89,7 +87,6 @@ def _call_openai(messages: list[HumanMessage | SystemMessage], temperature: floa
 
 
 def _call_openrouter(messages: list[dict[str, str]], temperature: float) -> str:
-    """Call OpenRouter API, raising exceptions for caller to handle."""
     api_key = os.getenv("OPENROUTER_API_KEY")
     if not api_key:
         raise RuntimeError("OPENROUTER_API_KEY not set")
@@ -127,8 +124,7 @@ def call_llm(
     temperature: float = 0.0,
     fallback_text: Optional[str] = None,
 ) -> Union[str, Dict[str, Any]]:
-    """Call the configured LLM or fallback heuristic.
-    
+    """
     Gracefully handles rate limits and API errors by falling back to rule-based extraction.
     """
     if os.getenv("OPENROUTER_API_KEY"):
@@ -141,19 +137,19 @@ def call_llm(
                 temperature,
             )
         except OpenAIRateLimitError:
-            # Rate limited - fall back to rule-based extraction
+
             if response_format == "json":
                 return RuleBasedExtractor.run(user_prompt)
             return fallback_text or _fallback_text(user_prompt)
         except Exception as e:
-            # Handle other API errors (429, rate limit messages, etc.)
+
             error_msg = str(e)
             if "429" in error_msg or "rate" in error_msg.lower() or "rate-limit" in error_msg.lower():
-                # Rate limited - fall back to rule-based extraction
+
                 if response_format == "json":
                     return RuleBasedExtractor.run(user_prompt)
                 return fallback_text or _fallback_text(user_prompt)
-            # For other errors, re-raise to let caller handle
+
             raise
     elif os.getenv("OPENAI_API_KEY"):
         try:
@@ -165,22 +161,22 @@ def call_llm(
                 temperature,
             )
         except OpenAIRateLimitError:
-            # Rate limited - fall back to rule-based extraction
+
             if response_format == "json":
                 return RuleBasedExtractor.run(user_prompt)
             return fallback_text or _fallback_text(user_prompt)
         except Exception as e:
-            # Handle other API errors (429, rate limit messages, etc.)
+
             error_msg = str(e)
             if "429" in error_msg or "rate" in error_msg.lower() or "rate-limit" in error_msg.lower():
-                # Rate limited - fall back to rule-based extraction
+
                 if response_format == "json":
                     return RuleBasedExtractor.run(user_prompt)
                 return fallback_text or _fallback_text(user_prompt)
-            # For other errors, re-raise to let caller handle
+
             raise
     else:
-        # No API key - use fallback
+
         if response_format == "json":
             return RuleBasedExtractor.run(user_prompt)
         text = fallback_text or _fallback_text(user_prompt)
@@ -189,7 +185,7 @@ def call_llm(
         try:
             return json.loads(text)
         except json.JSONDecodeError:
-            # If JSON parsing fails, fall back to rule-based extraction
+
             return RuleBasedExtractor.run(user_prompt)
     return text
 
