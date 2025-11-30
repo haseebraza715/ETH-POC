@@ -23,9 +23,15 @@ Click "Sign in" and authorize Streamlit Cloud to access your GitHub repositories
 4. Main file path: `app.py`
 5. Click "Deploy!"
 
-### 4. Configure Environment Variables (Optional but Recommended)
+### 4. Configure Secrets (Optional but Recommended)
 
-After deployment, go to your app settings and add these secrets:
+After deployment, go to your app settings (click the ⚙️ icon) and add secrets:
+
+1. Click on "Secrets" in the settings menu
+2. Add your API keys in the format:
+   ```
+   OPENROUTER_API_KEY = "your-api-key-here"
+   ```
 
 **For OpenRouter (recommended for free tier):**
 - `OPENROUTER_API_KEY` - Your OpenRouter API key
@@ -33,8 +39,8 @@ After deployment, go to your app settings and add these secrets:
 **OR for OpenAI:**
 - `OPENAI_API_KEY` - Your OpenAI API key
 
-**Optional OpenRouter settings:**
-- `OPENROUTER_MODEL` - Model name (default: `mistralai/mistral-small-3.2-24b-instruct:free`)
+**Optional settings (if using OpenRouter):**
+- `OPENROUTER_MODEL` - Model name (default: `google/gemini-flash-1.5`)
 - `OPENROUTER_SITE_URL` - Your site URL
 - `OPENROUTER_SITE_NAME` - Your site name
 

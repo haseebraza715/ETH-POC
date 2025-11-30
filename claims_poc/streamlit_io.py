@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 import streamlit as st
 
 from claims_poc.graph import IOInterface, NeedUserInput
-from typing import Dict
 
 
 class StreamlitIO(IOInterface):
@@ -164,24 +163,41 @@ class StreamlitIO(IOInterface):
         Returns:
             Dict mapping question text to answer (empty string if no answer), or None if not all questions have been answered
         """
-        if "question_answers_map" not in st.session_state:
-            return None
-        
         answers = {}
-        for q_info in questions:
-            question = q_info["question"]
-            if question in st.session_state.question_answers_map:
-                # Include answer even if empty (empty means use document value)
-                answer = st.session_state.question_answers_map[question]
-                answers[question] = answer.strip() if answer else ""
-            else:
-                # Question not in map means user hasn't answered yet
-                return None
+        
+        # First try to match by exact question text
+        if "question_answers_map" in st.session_state:
+            for q_info in questions:
+                question = q_info["question"]
+                if question in st.session_state.question_answers_map:
+                    answer = st.session_state.question_answers_map[question]
+                    answers[question] = answer.strip() if answer else ""
+        
+        # If we don't have all answers by question text, try matching by field name
+        # This handles cases where question text might vary slightly between runs
+        if len(answers) < len(questions) and "field_answers_map" in st.session_state:
+            field_answers = st.session_state.field_answers_map
+            for q_info in questions:
+                question = q_info["question"]
+                field = q_info["field"]
+                # If we don't have an answer for this question yet, try field-based matching
+                if question not in answers and field in field_answers:
+                    answer = field_answers[field]
+                    answers[question] = answer.strip() if answer else ""
+                    # Also store in question_answers_map for future exact matches
+                    if "question_answers_map" not in st.session_state:
+                        st.session_state.question_answers_map = {}
+                    st.session_state.question_answers_map[question] = answer
         
         # Return answers only if we have all of them (including empty ones)
         if len(answers) == len(questions):
             return answers
         return None
+
+    def clear_field_answers(self) -> None:
+        """Clear field-based answer mapping after processing."""
+        if "field_answers_map" in st.session_state:
+            del st.session_state.field_answers_map
 
     def clear(self) -> None:
         """Clear questions and notifications."""
@@ -192,6 +208,8 @@ class StreamlitIO(IOInterface):
             st.session_state.pending_questions = []
         if "question_answers_map" in st.session_state:
             st.session_state.question_answers_map = {}
+        if "field_answers_map" in st.session_state:
+            st.session_state.field_answers_map = {}
         if "notifications" in st.session_state:
             st.session_state.notifications = []
 

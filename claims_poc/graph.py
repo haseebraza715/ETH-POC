@@ -513,6 +513,10 @@ def _clarify_inconsistencies_node(io: IOInterface, state: LangGraphState) -> Lan
                             claim.add_reasoning(
                                 f"Clarified {field}: no answer provided, using document value '{doc_value}'"
                             )
+                
+                # Clear field_answers_map after processing to avoid reuse in future cycles
+                if hasattr(io, "clear_field_answers"):
+                    io.clear_field_answers()
             else:
                 # Not all answers available, raise exception to get user input
                 raise NeedMultiUserInput(questions_with_fields, current_state=state)

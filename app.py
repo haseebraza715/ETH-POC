@@ -182,6 +182,16 @@ def main() -> None:
                         io_handler.set_answer(question, answer.strip())
                     
                     if all_answered:
+                        # Store field-to-answer mapping for reliable matching
+                        # This ensures answers are matched by field even if question text varies
+                        if "field_answers_map" not in st.session_state:
+                            st.session_state.field_answers_map = {}
+                        for q_info in questions:
+                            field = q_info["field"]
+                            question = q_info["question"]
+                            if question in answers_provided:
+                                st.session_state.field_answers_map[field] = answers_provided[question].strip()
+                        
                         # Clear multi-question mode and re-run workflow
                         st.session_state.workflow_iteration += 1
                         st.session_state.workflow_state = "processing"
