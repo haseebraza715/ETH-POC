@@ -42,7 +42,8 @@ env/
 Thumbs.db
 
 # Streamlit
-.streamlit/
+.streamlit/*
+!.streamlit/config.toml
 
 # Temporary files
 *.tmp
