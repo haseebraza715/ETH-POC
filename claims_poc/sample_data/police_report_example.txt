@@ -1,0 +1,9 @@
+Police Report - Sample
+Date: 2024-05-18
+Time: 22:30
+Location: Zurich Central Bridge
+Other vehicle involved: Yes
+Other vehicle plate: ZH 45821
+Injuries: Minor bruises reported by passenger
+Description: Driver Alex Meier reported being rear-ended at a red light. Damage observed on rear bumper with estimate of 3500 CHF.
+
